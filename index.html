@@ -8,7 +8,6 @@
     />
     <title>Aplikasi Panduan Tajwid</title>
 
-    <!-- Memuat Tailwind CSS untuk Desain Antarmuka -->
     <script src="https://cdn.tailwindcss.com"></script>
 
     <style>
@@ -151,13 +150,10 @@
         id="hijaiyahModal"
         class="absolute inset-0 z-50 flex items-center justify-center p-5 opacity-0 pointer-events-none transition-all duration-300"
       >
-        <!-- Latar Gelap (Overlay) -->
         <div
           class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
           onclick="closeHijaiyahModal()"
         ></div>
-
-        <!-- Konten Popup -->
         <div
           class="bg-white rounded-[2rem] p-6 w-full max-w-[90%] relative z-10 transform translate-y-8 scale-95 transition-all duration-300 shadow-2xl flex flex-col items-center text-center border border-slate-100"
         >
@@ -179,7 +175,6 @@
               ></path>
             </svg>
           </button>
-
           <div
             class="w-20 h-20 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3 border-[4px] border-white shadow-sm mt-2 relative"
           >
@@ -192,7 +187,6 @@
             id="modalLetterLatin"
             class="text-sm font-bold text-slate-800 mb-5 bg-emerald-100 px-4 py-1.5 rounded-full text-emerald-700 tracking-wide uppercase shadow-sm"
           ></div>
-
           <div
             class="w-full bg-slate-50 rounded-2xl p-4 mb-2 text-left border border-slate-100 relative overflow-hidden"
           >
@@ -226,7 +220,6 @@
               class="text-sm text-slate-600 leading-relaxed relative z-10"
             ></p>
           </div>
-
           <button
             onclick="playCurrentModalAudio()"
             class="mt-4 w-full flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white py-3.5 rounded-xl font-semibold transition-all shadow-[0_4px_15px_-3px_rgba(16,185,129,0.4)]"
@@ -565,7 +558,6 @@
         },
       ];
 
-      // DATA HURUF HIJAIYAH (Lengkap dengan instruksi ejaan audio dan penjelasan Makhraj)
       const hijaiyahData = [
         {
           arab: "ا",
@@ -743,7 +735,6 @@
         },
       ];
 
-      // VARIABEL STATE DAN ELEMEN UI
       const mainContent = document.getElementById("mainContent");
       const appTitle = document.getElementById("appTitle");
       const backBtn = document.getElementById("backBtn");
@@ -756,7 +747,9 @@
       let currentSurahAyatData = [];
       let isContinuousPlay = false;
       let activeAyatIndex = -1;
-      window.currentQuranAudio = null; // Menyimpan instans audio secara global
+
+      // Menggunakan 1 objek Audio yang dipakai ulang agar mulus di peramban seluler (Continuous Play)
+      window.currentQuranAudio = null;
 
       function applyTajwidColoring(teks) {
         // Qalqalah (Biru)
@@ -803,7 +796,7 @@
         document.querySelectorAll(".toast-msg").forEach((t) => t.remove());
         const toast = document.createElement("div");
         toast.className =
-          "toast-msg absolute bottom-10 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-5 py-3 rounded-full shadow-2xl text-sm transition-all duration-300 opacity-0 translate-y-4 z-50 whitespace-nowrap text-center max-w-[90%]";
+          "toast-msg fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-5 py-3 rounded-full shadow-2xl text-sm transition-all duration-300 opacity-0 translate-y-4 z-50 text-center w-max max-w-[90%] pointer-events-none";
         toast.textContent = message;
         document.getElementById("app").appendChild(toast);
         setTimeout(() => {
@@ -852,10 +845,9 @@
       function renderCurrentState() {
         const currentState = navigationStack[navigationStack.length - 1];
 
-        // Hentikan suara Text-To-Speech jika ada
+        // Hentikan suara Text-To-Speech (Tajwid/Hijaiyah) jika ada
         stopAudio();
-
-        // PAUSE: Kami membiarkan Murottal tetap jalan di background, tidak dimatikan saat pindah layar (Fitur Baru)
+        // PAUSE: Murottal (Audio Al-Qur'an) dibiarkan tetap menyala di background
 
         mainContent.classList.add("opacity-0");
         setTimeout(() => {
@@ -890,11 +882,51 @@
           mainContent.classList.remove("opacity-0");
           mainContent.classList.add("transition-opacity", "duration-300");
 
-          // Jika kita membuka surah yang sedang diputar, pastikan UI tombolnya sinkron
+          // Jika surah saat ini sedang diputar di background, sinkronisasi UI Play Button
           if (currentState.view === "quran_surah" && isContinuousPlay) {
             updateContinuousBtnUI();
           }
         }, 150);
+      }
+
+      // Fungsi untuk mengunduh audio dengan paksa (melewati perilaku tab baru jika memungkinkan)
+      async function downloadAudio(url, filename) {
+        showToast("Memulai unduhan, mohon tunggu...");
+        try {
+          // Coba fetch untuk konversi ke blob agar memaksa dialog unduhan
+          const response = await fetch(url);
+          if (!response.ok) throw new Error("Gagal mengambil file");
+
+          const blob = await response.blob();
+          const blobUrl = URL.createObjectURL(blob);
+
+          const a = document.createElement("a");
+          a.style.display = "none";
+          a.href = blobUrl;
+          a.download = filename;
+
+          document.body.appendChild(a);
+          a.click();
+
+          // Bersihkan sisa elemen
+          setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(blobUrl);
+          }, 100);
+
+          showToast("Berhasil mengunduh audio.");
+        } catch (error) {
+          console.warn("CORS/Fetch error, beralih ke buka tab baru:", error);
+          showToast("Membuka tautan unduhan...");
+          // Fallback jika API memblokir fetch (CORS): Buka langsung di tab baru
+          const a = document.createElement("a");
+          a.href = url;
+          a.target = "_blank";
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
       }
 
       async function fetchQuranList() {
@@ -916,7 +948,7 @@
           const data = await response.json();
           return data.data;
         } catch (error) {
-          showToast("Gagal memuat surah.");
+          showToast("Gagal memuat detail surah.");
           return null;
         }
       }
@@ -959,15 +991,14 @@
         const detail = await fetchSurahDetail(nomor);
         if (!detail) return;
 
-        // Kita biarkan audio lama berjalan jika itu surah yang sama.
-        // Jika pindah surah baru, otomatis hentikan audio lama
+        // Jika kita membuka surah yang berbeda dengan yang sedang berbunyi, matikan murottal yang lama
         if (window.currentQuranAudio && window.currentQuranSurahId !== nomor) {
           window.currentQuranAudio.pause();
           isContinuousPlay = false;
           activeAyatIndex = -1;
         }
 
-        window.currentQuranSurahId = nomor; // Simpan penanda surah yang sedang diputar
+        window.currentQuranSurahId = nomor;
         currentSurahAyatData = detail.ayat;
         appTitle.textContent = detail.namaLatin;
 
@@ -981,7 +1012,7 @@
                     
                     <button id="btnPlaySurah" onclick="toggleContinuousPlay()" class="mx-auto flex items-center justify-center gap-2 bg-white/20 hover:bg-white/30 active:scale-95 text-white py-2.5 px-6 rounded-full font-semibold text-sm backdrop-blur-sm transition-all border border-white/30">
                         <svg id="iconPlaySurah" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                        <span id="textPlaySurah">Putar Surah</span>
+                        <span id="textPlaySurah">Putar Surah s.d Selesai</span>
                     </button>
                 </div>`;
 
@@ -1000,7 +1031,6 @@
 
         detail.ayat.forEach((ayat, index) => {
           const coloredTeksArab = applyTajwidColoring(ayat.teksArab);
-          // Highlight jika kebetulan ini adalah ayat yang sedang diputar di background
           const isActive = isContinuousPlay && activeAyatIndex === index;
           const bgClass = isActive
             ? "bg-emerald-50 border-emerald-200"
@@ -1011,6 +1041,7 @@
           const iconPath = isActive
             ? "M6 19h4V5H6v14zm8-14v14h4V5h-4z"
             : "M8 5v14l11-7z";
+          const filenameDl = `${detail.namaLatin.replace(/\s/g, "_")}_Ayat_${ayat.nomorAyat}.mp3`;
 
           html += `
                 <div id="ayat-container-${index}" class="${bgClass} p-5 rounded-3xl shadow-[0_2px_15px_-5px_rgba(0,0,0,0.05)] border relative transition-colors duration-500">
@@ -1018,9 +1049,18 @@
                         <div class="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-semibold text-xs border border-emerald-100 shrink-0">
                             ${ayat.nomorAyat}
                         </div>
-                        <button id="btn-audio-ayat-${index}" onclick="playQuranAudio(${index}, false)" class="quran-audio-btn w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-100 active:scale-90 transition-all shadow-sm border shrink-0 ${btnClass}">
-                            <svg class="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="${iconPath}"/></svg>
-                        </button>
+                        
+                        <div class="flex items-center gap-2">
+                            <!-- Tombol Download Audio per Ayat -->
+                            <button onclick="downloadAudio('${ayat.audio["05"]}', '${filenameDl}')" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 active:scale-90 transition-all shadow-sm border border-slate-200 bg-white text-slate-500 shrink-0" title="Unduh Murottal Ayat Ini">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                            </button>
+
+                            <!-- Tombol Play Audio -->
+                            <button id="btn-audio-ayat-${index}" onclick="playQuranAudio(${index}, false)" class="quran-audio-btn w-10 h-10 flex items-center justify-center rounded-full hover:bg-emerald-100 active:scale-90 transition-all shadow-sm border shrink-0 ${btnClass}">
+                                <svg class="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="${iconPath}"/></svg>
+                            </button>
+                        </div>
                     </div>
                     <p class="text-[2.2rem] font-arabic text-slate-800 leading-[4rem] text-right mb-6" dir="rtl">
                         ${coloredTeksArab}
@@ -1035,7 +1075,6 @@
         html += `</div></div>`;
         mainContent.innerHTML = html;
 
-        // Sinkronkan UI tombol Murottal jika audio masih nyala di background
         if (isContinuousPlay) updateContinuousBtnUI();
       }
 
@@ -1045,6 +1084,7 @@
           window.currentQuranAudio &&
           !window.currentQuranAudio.paused
         ) {
+          // Pause jika sedang jalan
           window.currentQuranAudio.pause();
           isContinuousPlay = false;
           updateContinuousBtnUI();
@@ -1054,10 +1094,12 @@
           window.currentQuranAudio &&
           !window.currentQuranAudio.paused
         ) {
+          // Jika audio satu ayat jalan, ubah jadi mode lanjut terus
           isContinuousPlay = true;
           updateContinuousBtnUI();
           showToast("Mode putar berurutan diaktifkan.");
         } else {
+          // Play dari awal atau letak terakhir
           isContinuousPlay = true;
           const startIndex = activeAyatIndex !== -1 ? activeAyatIndex : 0;
           playQuranAudio(startIndex, true);
@@ -1068,11 +1110,11 @@
         const btn = document.getElementById("btnPlaySurah");
         const icon = document.getElementById("iconPlaySurah");
         const text = document.getElementById("textPlaySurah");
-        if (!btn) return; // Mencegah error jika dipanggil saat UI sedang dirender ulang
+        if (!btn) return;
 
         if (isContinuousPlay) {
           icon.innerHTML = `<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>`;
-          text.textContent = "Hentikan";
+          text.textContent = "Hentikan Putaran";
           btn.classList.add(
             "bg-white/40",
             "animate-pulse",
@@ -1081,7 +1123,7 @@
           );
         } else {
           icon.innerHTML = `<path d="M8 5v14l11-7z"/>`;
-          text.textContent = "Putar Surah";
+          text.textContent = "Putar Surah s.d Selesai";
           btn.classList.remove(
             "bg-white/40",
             "animate-pulse",
@@ -1132,11 +1174,16 @@
 
         stopAudio(); // Hentikan TTS Tajwid jika ada
 
-        // Pause Manual jika menekan tombol yang sedang berjalan
+        // Init Audio Object yang konsisten (Hanya 1 per browser tab)
+        if (!window.currentQuranAudio) {
+          window.currentQuranAudio = new Audio();
+        }
+
+        // Fitur Pause Manual jika menekan tombol ayat yang sedang berbunyi
         if (
           activeAyatIndex === index &&
-          window.currentQuranAudio &&
-          !window.currentQuranAudio.paused
+          !window.currentQuranAudio.paused &&
+          window.currentQuranAudio.src === url
         ) {
           window.currentQuranAudio.pause();
           isContinuousPlay = false;
@@ -1145,16 +1192,13 @@
           return;
         }
 
-        if (window.currentQuranAudio) {
-          window.currentQuranAudio.pause();
-        }
         resetQuranAudioButtons();
         activeAyatIndex = index;
 
-        // Buat atau timpa objek audio global
-        window.currentQuranAudio = new Audio(url);
+        // Membersihkan event listener lama agar tidak dobel panggil ayat selanjutnya
+        window.currentQuranAudio.onended = null;
 
-        // Memulai audio dan mengatur MediaSession agar berjalan di Background (Lock Screen)
+        window.currentQuranAudio.src = url;
         window.currentQuranAudio
           .play()
           .then(() => {
@@ -1173,24 +1217,22 @@
                 ],
               });
 
-              // Binding kontrol HP agar bisa mengontrol web app
-              navigator.mediaSession.setActionHandler("play", () => {
-                window.currentQuranAudio.play();
-              });
+              navigator.mediaSession.setActionHandler("play", () =>
+                window.currentQuranAudio.play(),
+              );
               navigator.mediaSession.setActionHandler("pause", () => {
                 window.currentQuranAudio.pause();
-                if (document.getElementById(`btn-audio-ayat-${index}`))
-                  resetQuranAudioButtons();
+                resetQuranAudioButtons();
               });
-              // Jika sedang continuous, aktifkan fitur next track
               if (isContinuousPlay) {
-                navigator.mediaSession.setActionHandler("nexttrack", () => {
-                  playQuranAudio(index + 1, true);
-                });
+                navigator.mediaSession.setActionHandler("nexttrack", () =>
+                  playQuranAudio(index + 1, true),
+                );
               }
             }
           })
           .catch((e) => {
+            console.error("Audio playback error", e);
             showToast(
               "Gagal memutar audio, pastikan Anda terhubung ke internet.",
             );
@@ -1199,11 +1241,11 @@
             resetQuranAudioButtons();
           });
 
-        // Update Visual (Hanya Jika Elemennya Sedang Tampil di Layar / Belum Ganti Tab)
+        // Update Visual (Hanya Jika Elemennya Sedang Tampil di Layar)
         if (btnElement) {
           btnElement
             .querySelector("svg path")
-            .setAttribute("d", "M6 19h4V5H6v14zm8-14v14h4V5h-4z"); // Ikon Pause
+            .setAttribute("d", "M6 19h4V5H6v14zm8-14v14h4V5h-4z");
           btnElement.classList.remove(
             "bg-emerald-50",
             "text-emerald-500",
@@ -1215,10 +1257,15 @@
             "animate-pulse",
             "border-transparent",
           );
-
-          setTimeout(() => {
-            btnElement.scrollIntoView({ behavior: "smooth", block: "center" });
-          }, 150);
+          // Gulir layar otomatis agar fokus ke ayat yang diputar
+          setTimeout(
+            () =>
+              btnElement.scrollIntoView({
+                behavior: "smooth",
+                block: "center",
+              }),
+            150,
+          );
         }
 
         if (containerElement) {
@@ -1228,12 +1275,12 @@
 
         if (fromContinuous) updateContinuousBtnUI();
 
-        // Putar ayat selanjutnya secara otomatis jika fitur dinyalakan
+        // Event saat satu ayat selesai
         window.currentQuranAudio.onended = () => {
           if (isContinuousPlay) {
             const nextIndex = index + 1;
             if (nextIndex < currentSurahAyatData.length) {
-              playQuranAudio(nextIndex, true);
+              playQuranAudio(nextIndex, true); // Putar ayat berikutnya secara otomatis
             } else {
               isContinuousPlay = false;
               updateContinuousBtnUI();
@@ -1290,7 +1337,6 @@
 
         hijaiyahData.forEach((huruf, idx) => {
           const colorClass = colors[idx % colors.length];
-          // Klik tombol akan memicu Detail Popup sekaligus Suara
           html += `
                 <button id="hijaiyah-btn-${idx}" onclick="showHijaiyahDetail(${idx}, this)" class="flex flex-col items-center justify-center bg-white border border-slate-100 shadow-[0_2px_8px_-3px_rgba(0,0,0,0.08)] rounded-2xl aspect-square active:scale-90 transition-all duration-200 group relative overflow-hidden">
                     <span data-color="${colorClass}" class="text-4xl font-arabic leading-none ${colorClass} transition-colors">${huruf.arab}</span>
@@ -1434,44 +1480,32 @@
 
       let currentActiveHijaiyahLatin = "";
 
-      // Menampilkan popup detail penjelasan Makhraj Huruf
       function showHijaiyahDetail(idx, btnElement) {
         const huruf = hijaiyahData[idx];
         currentActiveHijaiyahLatin = huruf.latin;
-
-        // Isi konten modal
         document.getElementById("modalLetterArab").textContent = huruf.arab;
         document.getElementById("modalLetterLatin").textContent = huruf.latin;
         document.getElementById("modalLetterMakhraj").textContent =
           huruf.makhraj;
-
-        // Tampilkan Modal dengan animasi
         const modal = document.getElementById("hijaiyahModal");
         modal.classList.remove("opacity-0", "pointer-events-none");
-
         const modalBox = modal.querySelector(".bg-white");
         modalBox.classList.remove("translate-y-8", "scale-95");
         modalBox.classList.add("translate-y-0", "scale-100");
-
-        // Otomatis putar audio
         playHijaiyahAudio(btnElement, huruf.latin);
       }
 
-      // Menutup popup Makhraj
       function closeHijaiyahModal() {
         const modal = document.getElementById("hijaiyahModal");
         modal.classList.add("opacity-0", "pointer-events-none");
-
         const modalBox = modal.querySelector(".bg-white");
         modalBox.classList.add("translate-y-8", "scale-95");
         modalBox.classList.remove("translate-y-0", "scale-100");
       }
 
-      // Memutar audio kembali dari dalam popup Makhraj
       function playCurrentModalAudio() {
         if (!("speechSynthesis" in window)) return;
         window.speechSynthesis.cancel();
-
         const utterance = new SpeechSynthesisUtterance(
           currentActiveHijaiyahLatin,
         );
@@ -1486,7 +1520,6 @@
           return;
         }
         window.speechSynthesis.cancel();
-
         document.querySelectorAll('[id^="hijaiyah-btn-"]').forEach((btn) => {
           btn.classList.remove(
             "bg-emerald-500",
